@@ -1,4 +1,3 @@
-#include <bits/stdc++.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,50 +27,129 @@ using namespace std;
 FILE *fp;
 char buf[BSIZE+10];
 queue <string> gquiz;
+int num = 0, flag = 0;
+char *raiz, flagStr[5000];
 
 void directory(char *host)
 {
     struct stat st = {0};
-    string name = host;
-    size_t found = name.find_last_of("/");
-    if (found!=std::string::npos)
+    string path, file, name;
+    char caminho[5000], *temporary;
+    name = host;
+    if(num == 0)
     {
-        string path = name.substr(0,found);
-        istringstream iss(path);
-        string token;
-        int i = 0;
-        while (getline(iss, token, '/'))
-        {
-            mkdir(token.c_str(), 0700);
-            chdir(token.c_str());
-            i++;
-        }
-        if(i == 0){
-            mkdir(path.c_str(), 0700);
-            chdir(path.c_str());
-        }
+    	size_t found1 = name.find_last_of("/");
+		if (found1!=std::string::npos)
+		{	
+		    path = name.substr(0,found1);
+		    file = name.substr(found1+1);
+		    strcpy(caminho, path.c_str());
+		    temporary = strtok(caminho, "/");
+		    while (temporary != NULL)
+			{
+				if ((stat(temporary, &st) == -1) && (temporary != NULL))
+				{
+				    mkdir(temporary, 0700);
+				    flag++;
+				}
+				chdir(temporary);
+				temporary = strtok(NULL, "/");
+			}
+		    fp = fopen(file.c_str(), "ab");
+		    num++;
+		    return;
+		}else{
+			temporary = strtok(host, "/");
+			while (temporary != NULL)
+			{
+				if ((stat(temporary, &st) == -1) && (temporary != NULL))
+				{
+					mkdir(temporary, 0700);
+					flag++;
+				}
+				chdir(temporary);
+				temporary = strtok(NULL, "/");
+			}
+			fp = fopen("text.html", "a+");
+			num++;
+			return;
+		}
+    }else{
+		string str1 = raiz;
+		size_t p = name.find(raiz);
+		if(p!=std::string::npos)
+		{
+			while(flag > 1)
+			{
+				chdir("..");
+				flag--;
+			}
+			size_t found1 = name.find_first_of("/");
+			size_t found2 = name.find_last_of("/");
+			if (found1!=std::string::npos && found2!=std::string::npos)
+			{	
+			    path = name.substr(found1+1,found2);
+			    file = name.substr(found2+1);
+			    strcpy(caminho, path.c_str());
+			    temporary = strtok(caminho, "/");
+			    while (temporary != NULL)
+				{
+					if ((stat(temporary, &st) == -1) && (temporary != NULL))
+					{
+					    mkdir(temporary, 0700);
+					    flag++;
+					}
+					chdir(temporary);
+					temporary = strtok(NULL, "/");
+				}
+			    fp = fopen(file.c_str(), "ab");
+			    num++;
+			    return;
+			}else{
+				while(flag > 1)
+				{
+					chdir("..");
+					flag--;
+				}
+				temporary = strtok(host, "/");
+				while (temporary != NULL)
+				{
+					if ((stat(temporary, &st) == -1) && (temporary != NULL))
+					{
+						mkdir(temporary, 0700);
+						flag++;
+					}
+					chdir(temporary);
+					temporary = strtok(NULL, "/");
+				}
+				fp = fopen("text.html", "a+");
+				num++;
+				return;
+			}
+		}else{
+			while(flag > 1)
+			{
+				chdir("..");
+				flag--;
+			}
+			temporary = strtok(host, "/");
+			while (temporary != NULL)
+			{
+				if ((stat(temporary, &st) == -1) && (temporary != NULL))
+				{
+					mkdir(temporary, 0700);
+					flag++;
+				}
+				chdir(temporary);
+				temporary = strtok(NULL, "/");
+			}
+			fp = fopen("text.html", "a+");
+			num++;
+			return;
+		}
     }
-    char *temporary = strtok(host, "/");
-    char *extension;
-    int flag = 0;
-    while (temporary != NULL)
-    {
-        if ((stat(temporary, &st) == -1) && (temporary != NULL))
-        {
-            mkdir(temporary, 0700);
-            flag = 1;
-        }
-        chdir(temporary);
-        extension = temporary;
-        temporary = strtok(NULL, "/");
-    }
-    string file = name.substr(found+1);
-    if(name.size() > found) fp = fopen(file.c_str(), "ab");
-    else fp = fopen("text.html", "a+");
 }
-
 /* Get the web page and print it to standard output. */
-
 void get_page (char *host)
 {
     char buffer[65535];
@@ -84,8 +162,9 @@ void get_page (char *host)
     host_info.ai_family = AF_UNSPEC;
     host_info.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(host, "http", &host_info, &host_info_list) != 0) {
-        fprintf(stderr," Erro no formato do endereco do servidor! O programa foi encerrado\n");
-        exit (1);
+        fprintf(stderr," Erro no formato do endereco do servidor! Nao pode obter a pagina\n");
+        //exit (1);
+        return;
     }
     //cria um socket
     if ((idSocket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol)) < 0) 
@@ -152,27 +231,28 @@ void destroi(queue <string> gq)
 
 void extrai_urls(char *host)
 {
-    char arqname[5000], dados[5000], ABC;
-    string buffer, url, hostname;
+	/** TODO: corrigir a extração dos links, pois possue links quebrados
+	**/
+    char dados[5000], ABC;
+    string line, url, hostname;
     FILE *fp1;
     int i, n, j, flag;
-    strcpy(arqname,"/home/sala/Trab-TR2/");
-    strcat(arqname,host);
-    strcat(arqname,"/text.html");
-    fp1 = fopen(arqname,"r");
+    fp1 = fopen("text.html","r");
 
     if(fp1 == NULL)
     {
         printf("Falha ao abrir o arquivo\n");
+        cout << host;
+        cout << '\n';
         exit(1);
     }else{
         while(fgets(dados,5000, fp1) != NULL) //le o arquivo de entrada
         {
-            buffer = dados;
-            size_t pos = buffer.find("href=");
+            line = dados;
+            size_t pos = line.find("href=");
             if (pos!=std::string::npos)
             {
-                string str1 = buffer.substr(pos+5);
+                string str1 = line.substr(pos+5);
                 pos = str1.find(" ");
                 url = str1.substr(0,pos);
                 size_t pos1 = url.find_first_of('"');
@@ -188,12 +268,21 @@ void extrai_urls(char *host)
                         if(pos2!=std::string::npos) 
                             hostname = hostname.substr(0,pos2);
                         if (hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
-                            gquiz.push(hostname);
-                        //cout << hostname;cout << '\n';
-                        /**
-							Na função extrai urls, TO DO:
-							verificar para cada link inserido na lista se ele pertence ao dominio do site host
-						**/
+                        {
+                        	string temp = host;
+                        	size_t pos3 = temp.find("www.");
+                        	if(pos3!=std::string::npos)
+                        	{
+                        		string domain = temp.substr(pos3+4);
+                        		//cout << domain;cout << '\n'; getchar();
+                        		size_t pos4 = hostname.find(domain);
+                        		if(pos4!=std::string::npos)
+                        		{
+                        			gquiz.push(hostname);
+                        			//cout << hostname;cout << '\n';
+                        		}
+                        	}
+                        }
                     }
                 }
                 pos1 = url.find_first_of('>');
@@ -206,19 +295,18 @@ void extrai_urls(char *host)
                     {
                         string str4 = str3.substr(pos1+1, pos2);
                         string str5 = host + str4;
-                        if(compara(gquiz,str5) != 1)
-                            gquiz.push(str5);
-                        //cout << host;cout << str4;cout << '\n';getchar();
+                        if(compara(gquiz,str5) != 1) gquiz.push(str5);
+                        //cout << str5;cout << '\n';
                     }
                 }
                 //cout << url;cout << '\n';getchar();
             }
-            //cout << buffer;cout << '\n';getchar();
+            //cout << line;cout << '\n';getchar();
             pos = 0;
-            pos = buffer.find("<img src=");
+            pos = line.find("<img src=");
             if (pos!=std::string::npos)
             {
-                string str6 = buffer.substr(pos+8);
+                string str6 = line.substr(pos+8);
                 pos = str6.find(" ");
                 str6 = str6.substr(0,pos);
                 size_t pos1 = str6.find_first_of('"');
@@ -230,7 +318,7 @@ void extrai_urls(char *host)
                     str7 = str7.substr(0,pos);
                     string str8 = host + str7;
                     if(compara(gquiz,str8) != 1) gquiz.push(str8);
-                    //cout << host;cout << str7;cout << '\n';getchar();
+                    //cout << str8;cout << '\n';getchar();
                 }
             }
         }
@@ -238,30 +326,24 @@ void extrai_urls(char *host)
     fclose(fp1);
     showq(gquiz);
 }
-
-int main (int argc, char *argv[])
-{
-    /* Get one of the web pages here. */
-    char * host = argv[1];
-    directory(host);
-    get_page (host);
-    extrai_urls(host);
-    destroi(gquiz);
-    return 0;
-}
 void recursivo(queue <string> gq)
 {
     queue <string> g = gq;
+    string path, file;
     while (!g.empty())
     {
         string str = g.front();
+	    size_t found = str.find_last_of("/");
+	    if (found!=std::string::npos)
+        {
+        	path = str.substr(0,found);
+        	file = str.substr(found+1);
+        }
         char nome[5000];
         strcpy(nome, str.c_str());
+        chdir("cd ~/Trab-TR2");
         directory(nome);
         get_page (nome);
-	    size_t found = str.find_last_of("/");
-	    string path = str.substr(0,found);
-	    string file = str.substr(found+1);
 	    if(str.size() > found) 
 	    {
 	    	cout << "download ";
@@ -276,4 +358,16 @@ void recursivo(queue <string> gq)
 	    }
         g.pop();
     }
+}
+int main (int argc, char *argv[])
+{
+    /* Get one of the web pages here. */
+    char * host = argv[1];
+    raiz = argv[1];
+    directory(host);
+    get_page (host);
+    extrai_urls(host);
+    recursivo(gquiz);
+    destroi(gquiz);
+    return 0;
 }

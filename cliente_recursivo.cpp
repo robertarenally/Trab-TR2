@@ -68,7 +68,6 @@ void directory(char *host)
     string file = name.substr(found+1);
     if(name.size() > found) fp = fopen(file.c_str(), "ab");
     else fp = fopen("text.html", "a+");
-    cout << '\n';
 }
 
 /* Get the web page and print it to standard output. */
@@ -191,6 +190,10 @@ void extrai_urls(char *host)
                         if (hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
                             gquiz.push(hostname);
                         //cout << hostname;cout << '\n';
+                        /**
+							Na função extrai urls, TO DO:
+							verificar para cada link inserido na lista se ele pertence ao dominio do site host
+						**/
                     }
                 }
                 pos1 = url.find_first_of('>');
@@ -252,10 +255,25 @@ void recursivo(queue <string> gq)
     while (!g.empty())
     {
         string str = g.front();
-        char *nome = str;
+        char nome[5000];
+        strcpy(nome, str.c_str());
         directory(nome);
         get_page (nome);
-        extrai_urls(nome);
+	    size_t found = str.find_last_of("/");
+	    string path = str.substr(0,found);
+	    string file = str.substr(found+1);
+	    if(str.size() > found) 
+	    {
+	    	cout << "download ";
+	    	cout << str;
+	    	cout << '\n';
+	    }else{
+	    	extrai_urls(nome);
+	    	cout << "download ";
+	    	cout << str;
+	    	cout << "/text.html";
+	    	cout << '\n';
+	    }
         g.pop();
     }
 }

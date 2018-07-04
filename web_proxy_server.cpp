@@ -32,7 +32,7 @@ int main (int argc, char *argv[])
 	//descritores 
 	int sockfd,newsockfd;
 	//retornos
-	int binded, sizeClient;
+	int binded, sizeClient, pid;
 	//numero da porta
 	int numPort;
 	//enderecos
@@ -72,17 +72,27 @@ int main (int argc, char *argv[])
   	sizeClient = sizeof(struct sockaddr);
 
 
-  	while(1)
-  	{
+  	while(1) {
+  		
   		// bloqueia a execucao do programa, ate que exista um pedido de conexao por parte do cliente
   		newsockfd = accept(sockfd,&endereco_cliente, (socklen_t*) &sizeClient); 
 
   		if (newsockfd <0){
   			printf("Erro ao aceitar pedido de conexao!\n");
  		}
- 		getDadoCliente((void*)&newsockfd);
+
+ 		pid = fork();
+
+ 		if(pid == 0){
+
+ 			getDadoCliente((void*)&newsockfd);
+ 			close(newsockfd);
+ 			_exit(0);
+ 		}else{
+ 			close(newsockfd);     // pid =1 parent process
+ 		}
  	}
- 	close(newsockfd);
+
  	close(sockfd);
 	return 0;
 }
@@ -133,20 +143,20 @@ int createServerSocket(char *pcAddress, char *pcPort) {
   host_info.ai_family = AF_UNSPEC;
   host_info.ai_socktype = SOCK_STREAM;
   if (getaddrinfo(pcAddress, pcPort, &host_info, &host_info_list) != 0) {
-   		fprintf(stderr," Erro no formato do endereco do servidor!\n");
-		return 0;
+   		fprintf(stderr," Erro no formato do endereco do servidor! O programa foi encerrado\n");
+		exit (1);
   }
   //cria um socket
   if ((idSocket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol)) < 0) 
   {
-    	fprintf(stderr," Erro ao criar socket para o servidor!\n");
-		return 0;
+    	fprintf(stderr," Erro ao criar socket para o servidor! O programa foi encerrado\n");
+		exit (1);
   }
   //faz a conecção
   if (connect(idSocket, host_info_list->ai_addr, host_info_list->ai_addrlen) < 0)
   {
     	fprintf(stderr," Erro ao tentar conectar o servidor! O programa foi encerrado\n");
-		return 0;
+		exit (1);
   }
   freeaddrinfo(host_info_list);
   return idSocket;
@@ -165,7 +175,7 @@ void writeToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 	while (totalSent < sizeBuffer) {
 		if ((numSent = send(socketfd, (void *) (bufferServer + totalSent), sizeBuffer - totalSent, 0)) < 0) {
 			fprintf(stderr," Erro ao enviar para o servidor!\n");
-			return;
+			exit (1);
 		}
 		totalSent += numSent;
 
@@ -185,7 +195,7 @@ void writeToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 	while (totalSent < sizeBuffer) {
 		if ((numSent = send(socketfd, (void *) (bufferServer + totalSent), sizeBuffer - totalSent, 0)) < 0) {
 			fprintf(stderr," Erro ao receber do servidor!\n");
-			return;
+			exit (1);
 		}
 		totalSent += numSent;
 
@@ -206,7 +216,7 @@ void writeToClient (int Clientfd, int Serverfd)
 	}      
 	if (iRecv < 0) {
 	  fprintf(stderr,"Erro enquanto recebia do servidor!\n");
-	  return;
+	  exit (1);
 	}
 }
 void* getDadoCliente(void* socketid)
@@ -240,9 +250,7 @@ void* getDadoCliente(void* socketid)
 
 	  if(recvd < 0 ){
 	  	fprintf(stderr," Erro ao receber mensagem do cliente!\n");
-	  	int y = 3;
-		int *p = &y;
-		return p;
+		exit (1);
 	  				
 	  }else if(recvd == 0) {
 	  		break;
@@ -261,21 +269,25 @@ void* getDadoCliente(void* socketid)
 	  }
 	  strcat(mensagem, buffer);
 	}
-	//printf("%s\n",mensagem);
+	if(strlen(mensagem) > 0)
+	{
+		printf("----------------------------------------------------\n");
+		printf("Resquisicao HTTP do browser:\n");
+		printf("%s", mensagem);
+		printf("----------------------------------------------------\n");
+	}
 	struct PedidoAnalisado *pedido;    // contem o pedido analisado
 
 	pedido = PedidoAnalisado_create();
 
 	if (Analise_do_pedido(pedido, mensagem, strlen(mensagem)) < 0) {		
-		fprintf(stderr,"Erro na mensagem de pedido, apenas http e get com cabecalhos sao permitido!\n");
-		int y = 3;
-		int *p = &y;
-		return p;
+		//fprintf(stderr,"Erro na mensagem de pedido, apenas http e get com cabecalhos sao permitido!\n");
+		exit(0);
 	}
 	//Se a porta não foi setada na mensagem URL, coloquei como padrao a porta 8228
 	if (pedido->port == NULL)             
 		 pedido->port = (char *) "80";
-	showRequestClientHttp(pedido);
+	//showRequestClientHttp(pedido);
 	//pedido final para ser enviado
 	browser_request  = converte_Request_to_string(pedido);		
 	iServerfd = createServerSocket(pedido->host, pedido->port);
@@ -293,17 +305,86 @@ void showRequestClientHttp(struct PedidoAnalisado *pedido)
 {
 	printf("----------------------------------------------------\n");
 	printf("Request HTTP interceptado do browser:\n");
-	printf("method: %s\n", pedido->method);
-	printf("url: %s\n", pedido->path);
-	printf("protocol: %s\n", pedido->protocol);
-	printf("host: %s\n", pedido->host);
-	printf("port: %s\n", pedido->port);
-	printf("version: %s\n", pedido->version);
-	printf("buffer: %s\n", pedido->buf);
-	printf("tamanho do buffer: %zu\n", pedido->buflen);
-	printf("key: %s\n", pedido->headers->key);
-	printf("sizeKey: %zu\n", pedido->headers->sizeKey);
-	printf("value: %s\n", pedido->headers->value);
-	printf("sizeValue: %zu\n", pedido->headers->sizeValue);
+	printf("1 - method: %s\n", pedido->method);
+	printf("2 - url: %s\n", pedido->path);
+	printf("3 - protocol: %s\n", pedido->protocol);
+	printf("4 - host: %s\n", pedido->host);
+	printf("5 - port: %s\n", pedido->port);
+	printf("6 - version: %s\n", pedido->version);
+	printf("7 - buffer: %s\n", pedido->buf);
+	printf("8 - tamanho do buffer: %zu\n", pedido->buflen);
+	printf("9 - key: %s\n", pedido->headers->key);
+	printf("10 - sizeKey: %zu\n", pedido->headers->sizeKey);
+	printf("11 - value: %s\n", pedido->headers->value);
+	printf("12 - sizeValue: %zu\n", pedido->headers->sizeValue);
+	printf("13 - para enviar sem editar\n");
 	printf("----------------------------------------------------\n");
+	/*int opcao;
+	printf("Digite enter para continuar >> ");
+	scanf("%d", &opcao);
+	switch(opcao)
+	{
+		case 1:
+			printf("1 - method: %s\n", pedido->method);
+			printf("1 - method >> ");
+			scanf("%s",pedido->method);
+			break;
+		case 2:
+			printf("2 - url: %s\n", pedido->path);
+			printf("2 - url >> ");
+			scanf("%s",pedido->path);
+			break;
+		case 3:
+			printf("3 - protocol: %s\n", pedido->protocol);
+			printf("3 - protocol >> ");
+			scanf("%s",pedido->protocol);
+			break;
+		case 4:
+			printf("4 - host: %s\n", pedido->host);
+			printf("4 - host >> ");
+			scanf("%s",pedido->host);
+			break;
+		case 5:
+			printf("5 - port: %s\n", pedido->port);
+			printf("5 - port >> ");
+			scanf("%s",pedido->port);
+			break;
+		case 6:
+			printf("6 - version: %s\n", pedido->version);
+			printf("6 - version >> ");
+			scanf("%s",pedido->version);
+			break;
+		case 7:
+			printf("7 - buffer: %s\n", pedido->buf);
+			printf("7 - buffer >> ");
+			scanf("%s",pedido->buf);
+			break;
+		case 8:
+			printf("8 - tamanho do buffer: %zu\n", pedido->buflen);
+			printf("8 - tamanho do buffer >> ");
+			scanf("%zu",&pedido->buflen);
+			break;
+		case 9:
+			printf("9 - key: %s\n", pedido->headers->key);
+			printf("9 - key >> ");
+			scanf("%s",pedido->headers->key);
+			break;
+		case 10:
+			printf("10 - sizeKey: %zu\n", pedido->headers->sizeKey);
+			printf("10 - sizeKey >> ");
+			scanf("%zu",&pedido->headers->sizeKey);
+			break;
+		case 11:
+			printf("11 - value: %s\n", pedido->headers->value);
+			printf("11 - value >> ");
+			scanf("%s",pedido->headers->value);
+			break;
+		case 12:
+			printf("12 - sizeValue: %zu\n", pedido->headers->sizeValue);
+			printf("12 - sizeValue >> ");
+			scanf("%zu",&pedido->headers->sizeValue);
+			break;
+		default:
+			return;
+	}*/
 }

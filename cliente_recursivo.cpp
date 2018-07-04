@@ -30,6 +30,22 @@ queue <string> gquiz;
 int num = 0, flag = 0;
 char *raiz, flagStr[5000];
 
+void recursivo(queue <string> gq);
+
+void pause (float delay1) {
+
+   if (delay1<0.001) return; // pode ser ajustado e/ou evita-se valores negativos.
+
+   float inst1=0, inst2=0;
+
+   inst1 = (float)clock()/(float)CLOCKS_PER_SEC;
+
+   while (inst2-inst1<delay1) inst2 = (float)clock()/(float)CLOCKS_PER_SEC;
+
+   return;
+
+}
+
 void directory(char *host)
 {
     struct stat st = {0};
@@ -70,7 +86,7 @@ void directory(char *host)
 				chdir(temporary);
 				temporary = strtok(NULL, "/");
 			}
-			fp = fopen("text.html", "a+");
+			fp = fopen("index.html", "a+");
 			num++;
 			return;
 		}
@@ -122,7 +138,7 @@ void directory(char *host)
 					chdir(temporary);
 					temporary = strtok(NULL, "/");
 				}
-				fp = fopen("text.html", "a+");
+				fp = fopen("index.html", "a+");
 				num++;
 				return;
 			}
@@ -143,14 +159,14 @@ void directory(char *host)
 				chdir(temporary);
 				temporary = strtok(NULL, "/");
 			}
-			fp = fopen("text.html", "a+");
+			fp = fopen("index.html", "a+");
 			num++;
 			return;
 		}
     }
 }
 /* Get the web page and print it to standard output. */
-void get_page (char *host)
+int get_page (char *host)
 {
     char buffer[65535];
     int bytesRecv;
@@ -161,10 +177,11 @@ void get_page (char *host)
     memset(&host_info, 0, sizeof(host_info));
     host_info.ai_family = AF_UNSPEC;
     host_info.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, "http", &host_info, &host_info_list) != 0) {
-        fprintf(stderr," Erro no formato do endereco do servidor! Nao pode obter a pagina\n");
+    if (getaddrinfo(host, "80", &host_info, &host_info_list) != 0) {
+        fprintf(stderr,"Nao pode obter a pagina ");
+        printf("%s\n", host);
         //exit (1);
-        return;
+        return 1;
     }
     //cria um socket
     if ((idSocket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol)) < 0) 
@@ -196,6 +213,7 @@ void get_page (char *host)
         fprintf(fp,"%s", buffer);         
     } 
     fclose(fp);
+    return 0;
 }
 
 void showq(queue <string> gq)
@@ -203,8 +221,9 @@ void showq(queue <string> gq)
     queue <string> g = gq;
     while (!g.empty())
     {
-        cout << '\n' << g.front();
+    	cout << g.front() << '\n';
         g.pop();
+        pause(1);
     }
     cout << '\n';
 }
@@ -231,14 +250,12 @@ void destroi(queue <string> gq)
 
 void extrai_urls(char *host)
 {
-	/** TODO: corrigir a extração dos links, pois possue links quebrados
-	**/
-    char dados[5000], ABC;
-    string line, url, hostname;
+    /** TODO: corrigir a extração dos links, pois possue links quebrados
+    **/
     FILE *fp1;
-    int i, n, j, flag;
-    fp1 = fopen("text.html","r");
-
+    char dados[5000];
+    fp1 = fopen("index.html","r");
+    queue <string> auxiliar;
     if(fp1 == NULL)
     {
         printf("Falha ao abrir o arquivo\n");
@@ -246,118 +263,201 @@ void extrai_urls(char *host)
         cout << '\n';
         exit(1);
     }else{
+        string domain = raiz;
+        size_t pos = domain.find("www.");
+        domain = domain.substr(pos+4);
         while(fgets(dados,5000, fp1) != NULL) //le o arquivo de entrada
         {
-            line = dados;
+            string line = dados;
             size_t pos = line.find("href=");
             if (pos!=std::string::npos)
             {
+                string hostname;
                 string str1 = line.substr(pos+5);
                 pos = str1.find(" ");
-                url = str1.substr(0,pos);
-                size_t pos1 = url.find_first_of('"');
+                string url = str1.substr(0,pos);
+                size_t pos1 = url.find_first_of("http://");
                 size_t pos2 = url.find_last_of('"');
                 if (pos1!=std::string::npos && pos2!=std::string::npos)
                 {
-                    string str2 = url.substr(pos1, pos2);
-                    pos = str2.find("http://");
+                    url = url.substr(pos1, pos2-1);
+                    //cout << "url >> "; cout << url << '\n';
+                    pos = url.find("http://");
                     if (pos!=std::string::npos)
                     {
-                        hostname = str2.substr(pos+7);
-                        pos2 = hostname.find_last_of('/');
-                        if(pos2!=std::string::npos) 
-                            hostname = hostname.substr(0,pos2);
-                        if (hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                        hostname = url.substr(pos+7);
+                        pos = hostname.find_last_of('/');
+                        if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                        //cout << "host >> "; cout << hostname << '\n';
+                        pos = hostname.find(domain);
+                        if (pos!=std::string::npos && hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
                         {
-                        	string temp = host;
-                        	size_t pos3 = temp.find("www.");
-                        	if(pos3!=std::string::npos)
-                        	{
-                        		string domain = temp.substr(pos3+4);
-                        		//cout << domain;cout << '\n'; getchar();
-                        		size_t pos4 = hostname.find(domain);
-                        		if(pos4!=std::string::npos)
-                        		{
-                        			gquiz.push(hostname);
-                        			//cout << hostname;cout << '\n';
-                        		}
-                        	}
+                            gquiz.push(hostname);
+                            auxiliar.push(hostname);
+                            //cout << "host1 >> "; cout << hostname << '\n';
+                        }
+                    }else{
+                        pos = url.find("https://");
+                        if (pos==std::string::npos)
+                        {
+                            hostname = raiz + url;
+                            pos = hostname.find_last_of('/');
+                            if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                            if (hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                            {
+                                gquiz.push(hostname);
+                                auxiliar.push(hostname);
+                                //cout << "host2 >> "; cout << hostname << '\n';
+                            }
+                        }else{
+                            hostname = url.substr(pos+8);
+                            pos = hostname.find_last_of('/');
+                            if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                            //cout << "host >> "; cout << hostname << '\n';
+                            pos = hostname.find(domain);
+                            if (pos!=std::string::npos && hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                            {
+                                gquiz.push(hostname);
+                                auxiliar.push(hostname);
+                                //cout << "host3 >> "; cout << hostname << '\n';
+                            }
                         }
                     }
                 }
-                pos1 = url.find_first_of('>');
-                if (pos1!=std::string::npos)
+                pos = str1.find("<img src=");
+                if (pos!=std::string::npos)
                 {
-                    string str3 = url.substr(0, pos1);
-                    pos1 = str3.find_first_of('"');
-                    pos2 = str3.find_last_of('"');
+                    string img = str1.substr(pos+9);
+                    pos = img.find(" ");
+                    if (pos!=std::string::npos) img = img.substr(0,pos);
+                    size_t pos1 = img.find_first_of('"');
+                    size_t pos2 = img.find_last_of('"');
                     if (pos1!=std::string::npos && pos2!=std::string::npos)
                     {
-                        string str4 = str3.substr(pos1+1, pos2);
-                        string str5 = host + str4;
-                        if(compara(gquiz,str5) != 1) gquiz.push(str5);
-                        //cout << str5;cout << '\n';
+                        string Img = img.substr(pos1+2, pos2+1);
+                        //cout << "imagem >> ";cout << Img;cout << '\n';getchar();
+                        pos = Img.find('"');
+                        if (pos!=std::string::npos) Img = Img.substr(0,pos);
+                        //cout << "imagem >> ";cout << Img;cout << '\n';getchar();
+                        string link = hostname + "/" + Img;
+                        if(compara(gquiz,link) != 1) {
+                            gquiz.push(link);
+                            auxiliar.push(hostname);
+                        }
+                        //cout << "link da imagem >> ";cout << link;cout << '\n';getchar();
                     }
                 }
-                //cout << url;cout << '\n';getchar();
+                //cout<< "resto da linha >> ";cout << str1;cout << '\n';getchar();
             }
-            //cout << line;cout << '\n';getchar();
-            pos = 0;
-            pos = line.find("<img src=");
-            if (pos!=std::string::npos)
+            pos = line.find("<li class=");
+            size_t pos5 = line.find("<ul class=");
+            if (pos!=std::string::npos || pos5!=std::string::npos)
             {
-                string str6 = line.substr(pos+8);
-                pos = str6.find(" ");
-                str6 = str6.substr(0,pos);
-                size_t pos1 = str6.find_first_of('"');
-                size_t pos2 = str6.find_last_of('"');
-                if (pos1!=std::string::npos && pos2!=std::string::npos)
+                size_t pos = line.find("href=");
+                if (pos!=std::string::npos)
                 {
-                    string str7 = str6.substr(pos1+1, pos2+1);
-                    pos = str7.find('"');
-                    str7 = str7.substr(0,pos);
-                    string str8 = host + str7;
-                    if(compara(gquiz,str8) != 1) gquiz.push(str8);
-                    //cout << str8;cout << '\n';getchar();
+                    string hostname;
+                    string str1 = line.substr(pos+5);
+                    pos = str1.find(" ");
+                    string url = str1.substr(0,pos);
+                    size_t pos1 = url.find_first_of("http://");
+                    size_t pos2 = url.find_last_of('"');
+                    if (pos1!=std::string::npos && pos2!=std::string::npos)
+                    {
+                        url = url.substr(pos1, pos2-1);
+                        //cout << "url >> "; cout << url << '\n';
+                        pos = url.find("http://");
+                        if (pos!=std::string::npos)
+                        {
+                            hostname = url.substr(pos+7);
+                            pos = hostname.find_last_of('/');
+                            if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                            //cout << "host >> "; cout << hostname << '\n';
+                            pos = hostname.find(domain);
+                            if (pos!=std::string::npos && hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                            {
+                                gquiz.push(hostname);
+                                auxiliar.push(hostname);
+                                //cout << "host1 >> "; cout << hostname << '\n';
+                            }
+                        }else{
+                            pos = url.find("https://");
+                            if (pos==std::string::npos)
+                            {
+                                hostname = raiz + url;
+                                pos = hostname.find_last_of('/');
+                                if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                                pos = hostname.find(domain);
+                                if (pos!=std::string::npos && hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                                {
+                                    gquiz.push(hostname);
+                                    auxiliar.push(hostname);
+                                    //cout << "host2 >> "; cout << hostname << '\n';
+                                }
+                            }else{
+                                hostname = url.substr(pos+8);
+                                pos = hostname.find_last_of('/');
+                                if(pos!=std::string::npos) hostname = hostname.substr(0,pos);
+                                //cout << "host >> "; cout << hostname << '\n';
+                                pos = hostname.find(domain);
+                                if (pos!=std::string::npos && hostname.compare(host) != 0 && compara(gquiz,hostname) != 1)
+                                {
+                                    gquiz.push(hostname);
+                                    auxiliar.push(hostname);
+                                    //cout << "host3 >> "; cout << hostname << '\n';
+                                }
+                            }
+                        }
+                    }
+                    pos = str1.find("<img src=");
+                    if (pos!=std::string::npos)
+                    {
+                        string img = str1.substr(pos+9);
+                        pos = img.find(" ");
+                        if (pos!=std::string::npos) img = img.substr(0,pos);
+                        size_t pos1 = img.find_first_of('"');
+                        size_t pos2 = img.find_last_of('"');
+                        if (pos1!=std::string::npos && pos2!=std::string::npos)
+                        {
+                            string Img = img.substr(pos1+2, pos2+1);
+                            //cout << "imagem >> ";cout << Img;cout << '\n';getchar();
+                            pos = Img.find('"');
+                            if (pos!=std::string::npos) Img = Img.substr(0,pos);
+                            //cout << "imagem >> ";cout << Img;cout << '\n';getchar();
+                            string link = hostname + "/" + Img;
+                            if(compara(gquiz,link) != 1) {
+                                gquiz.push(link);
+                                auxiliar.push(hostname);
+                            }
+                            //cout << "link da imagem >> ";cout << link;cout << '\n';getchar();
+                        }
+                    }
+                    //cout<< "resto da linha >> ";cout << str1;cout << '\n';getchar();
                 }
             }
         }
     }
     fclose(fp1);
-    showq(gquiz);
+    //showq(auxiliar);
+    recursivo(auxiliar);
 }
 void recursivo(queue <string> gq)
 {
     queue <string> g = gq;
-    string path, file;
     while (!g.empty())
-    {
-        string str = g.front();
-	    size_t found = str.find_last_of("/");
-	    if (found!=std::string::npos)
-        {
-        	path = str.substr(0,found);
-        	file = str.substr(found+1);
-        }
-        char nome[5000];
-        strcpy(nome, str.c_str());
-        chdir("cd ~/Trab-TR2");
-        directory(nome);
-        get_page (nome);
-	    if(str.size() > found) 
+	{
+		string str = g.front();
+		char nome[5000];
+	    strcpy(nome, str.c_str());
+	    directory(nome);
+	    if(get_page (nome) == 0)
 	    {
-	    	cout << "download ";
-	    	cout << str;
-	    	cout << '\n';
-	    }else{
-	    	extrai_urls(nome);
-	    	cout << "download ";
-	    	cout << str;
-	    	cout << "/text.html";
-	    	cout << '\n';
+	       	cout << "\t\t\t";cout << "Download " << nome << '\n';
+	        extrai_urls(nome);  	
 	    }
-        g.pop();
-    }
+	    g.pop();
+	    pause(1);
+	}   
 }
 int main (int argc, char *argv[])
 {

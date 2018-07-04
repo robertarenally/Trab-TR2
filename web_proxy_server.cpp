@@ -32,7 +32,7 @@ int main (int argc, char *argv[])
 	//descritores 
 	int sockfd,newsockfd;
 	//retornos
-	int binded, sizeClient, pid;
+	int binded, sizeClient;
 	//numero da porta
 	int numPort;
 	//enderecos
@@ -72,27 +72,17 @@ int main (int argc, char *argv[])
   	sizeClient = sizeof(struct sockaddr);
 
 
-  	while(1) {
-  		
+  	while(1)
+  	{
   		// bloqueia a execucao do programa, ate que exista um pedido de conexao por parte do cliente
   		newsockfd = accept(sockfd,&endereco_cliente, (socklen_t*) &sizeClient); 
 
   		if (newsockfd <0){
   			printf("Erro ao aceitar pedido de conexao!\n");
  		}
-
- 		pid = fork();
-
- 		if(pid == 0){
-
- 			getDadoCliente((void*)&newsockfd);
- 			close(newsockfd);
- 			_exit(0);
- 		}else{
- 			close(newsockfd);     // pid =1 parent process
- 		}
+ 		getDadoCliente((void*)&newsockfd);
  	}
-
+ 	close(newsockfd);
  	close(sockfd);
 	return 0;
 }
@@ -143,20 +133,20 @@ int createServerSocket(char *pcAddress, char *pcPort) {
   host_info.ai_family = AF_UNSPEC;
   host_info.ai_socktype = SOCK_STREAM;
   if (getaddrinfo(pcAddress, pcPort, &host_info, &host_info_list) != 0) {
-   		fprintf(stderr," Erro no formato do endereco do servidor! O programa foi encerrado\n");
-		exit (1);
+   		fprintf(stderr," Erro no formato do endereco do servidor!\n");
+		return 0;
   }
   //cria um socket
   if ((idSocket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol)) < 0) 
   {
-    	fprintf(stderr," Erro ao criar socket para o servidor! O programa foi encerrado\n");
-		exit (1);
+    	fprintf(stderr," Erro ao criar socket para o servidor!\n");
+		return 0;
   }
   //faz a conecção
   if (connect(idSocket, host_info_list->ai_addr, host_info_list->ai_addrlen) < 0)
   {
     	fprintf(stderr," Erro ao tentar conectar o servidor! O programa foi encerrado\n");
-		exit (1);
+		return 0;
   }
   freeaddrinfo(host_info_list);
   return idSocket;
@@ -175,7 +165,7 @@ void writeToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 	while (totalSent < sizeBuffer) {
 		if ((numSent = send(socketfd, (void *) (bufferServer + totalSent), sizeBuffer - totalSent, 0)) < 0) {
 			fprintf(stderr," Erro ao enviar para o servidor!\n");
-			exit (1);
+			return;
 		}
 		totalSent += numSent;
 
@@ -195,7 +185,7 @@ void writeToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 	while (totalSent < sizeBuffer) {
 		if ((numSent = send(socketfd, (void *) (bufferServer + totalSent), sizeBuffer - totalSent, 0)) < 0) {
 			fprintf(stderr," Erro ao receber do servidor!\n");
-			exit (1);
+			return;
 		}
 		totalSent += numSent;
 
@@ -216,7 +206,7 @@ void writeToClient (int Clientfd, int Serverfd)
 	}      
 	if (iRecv < 0) {
 	  fprintf(stderr,"Erro enquanto recebia do servidor!\n");
-	  exit (1);
+	  return;
 	}
 }
 void* getDadoCliente(void* socketid)
@@ -250,7 +240,9 @@ void* getDadoCliente(void* socketid)
 
 	  if(recvd < 0 ){
 	  	fprintf(stderr," Erro ao receber mensagem do cliente!\n");
-		exit (1);
+	  	int y = 3;
+		int *p = &y;
+		return p;
 	  				
 	  }else if(recvd == 0) {
 	  		break;
@@ -275,8 +267,10 @@ void* getDadoCliente(void* socketid)
 	pedido = PedidoAnalisado_create();
 
 	if (Analise_do_pedido(pedido, mensagem, strlen(mensagem)) < 0) {		
-		//fprintf(stderr,"Erro na mensagem de pedido, apenas http e get com cabecalhos sao permitido!\n");
-		exit(0);
+		fprintf(stderr,"Erro na mensagem de pedido, apenas http e get com cabecalhos sao permitido!\n");
+		int y = 3;
+		int *p = &y;
+		return p;
 	}
 	//Se a porta não foi setada na mensagem URL, coloquei como padrao a porta 8228
 	if (pedido->port == NULL)             

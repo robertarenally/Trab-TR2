@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,16 +15,54 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
+#include <err.h>
+#include <stdarg.h>
 
 #include "analyzer_web_proxy.hpp"
 
-void* getDadoCliente(void*);
+
+int opcao;
+
+/**
+	Função responsavel receber o request HTTP do browser
+	e chamar as funções da biblioteca "analyzer_web_proxy.hpp"
+	Essa função também chama as demais funções listadas abaixo
+**/
+void* getRequestHTTP(void*);
+/**
+	Função responsavel por recuperar  buffer da requisição HTTP, depois que foi feito o parser
+**/
 char* converte_Request_to_string(struct PedidoAnalisado *pedido);
-int createServerSocket(char *pcAddress, char *pcPort);
-void writeToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer);
-void writeToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer);
-void writeToClient (int Clientfd, int Serverfd);
-void showRequestClientHttp(struct PedidoAnalisado *pedido);
+/**
+	Função responsavel por criar e fazer a conexão com socket para o servidor remoto
+	que o host da requisição HTTP está hospedado
+	Retorna o identificador do socket para o servidor remoto
+**/
+int createServerSocket(char *requestHost, char *requestPort);
+/**
+	Função responsavel por enviar a requisição HTTP do browser para o servidor remoto de destino
+	Entradas:	bufferServer armazena a requisicao HTTP
+				socketfd 	é o identificador do socket para o servidor remoto de destino
+				sizeBuffer  é o tamanho do buffer
+**/
+void sendToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer);
+/**
+	Função responsavel por enviar a resposta HTTP recebida do servidor remoto 
+	para o browser
+	Entradas:	bufferServer armazena a resposta HTTP
+				socketfd 	é o identificador do socket para o browser
+				sizeBuffer  é o tamanho do buffer
+**/
+void sendToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer);
+/**
+	Função rsponsavel por receber a resposta HTTP do servidor remoto e armazenala
+	em um buffer.
+	Também é responsavel por chamar a função void sendToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer);
+	Entradas:
+				Clientfd é o identificador do socket para o browser
+				Serverfd é o identificador do socket pata o servidor remoto
+**/
+void receiveFromServer (int Clientfd, int Serverfd);
 
 using namespace std;
 
@@ -32,7 +71,7 @@ int main (int argc, char *argv[])
 	//descritores 
 	int sockfd,newsockfd;
 	//retornos
-	int binded, sizeClient, pid;
+	int binded, sizeClient;
 	//numero da porta
 	int numPort;
 	//enderecos
@@ -67,11 +106,11 @@ int main (int argc, char *argv[])
   		return 1;
  	}
   	// Torna o servidor proxy apto para receber conexoes do cliente
-  	listen(sockfd, 100);  // aloca uma fila de tamanho 100 para conexões pendentes do browser
+  	listen(sockfd, 5);  // aloca uma fila de tamanho 5 para conexões pendentes do browser
 
   	sizeClient = sizeof(struct sockaddr);
 
-
+  	printf("Aguardando requisicoes ...\n");
   	while(1) {
   		
   		// bloqueia a execucao do programa, ate que exista um pedido de conexao por parte do cliente
@@ -80,19 +119,9 @@ int main (int argc, char *argv[])
   		if (newsockfd <0){
   			printf("Erro ao aceitar pedido de conexao!\n");
  		}
-
- 		pid = fork();
-
- 		if(pid == 0){
-
- 			getDadoCliente((void*)&newsockfd);
- 			close(newsockfd);
- 			_exit(0);
- 		}else{
- 			close(newsockfd);     // pid =1 parent process
- 		}
+ 		getRequestHTTP((void*)&newsockfd);
  	}
-
+ 	close(newsockfd);
  	close(sockfd);
 	return 0;
 }
@@ -108,7 +137,7 @@ char* converte_Request_to_string(struct PedidoAnalisado *pedido)
 	cabecalhoBuffer = (char*) malloc(sizeCabecalho + 1);
 
 	if (cabecalhoBuffer == NULL) {
-		fprintf(stderr," Erro na alocacao do cabecalhoBuffer! O programa foi encerrado \n");
+		fprintf(stderr," Erro na alocacao do cabecalhoBuffer! \n");
 		exit (1);
 	}
 
@@ -119,7 +148,7 @@ char* converte_Request_to_string(struct PedidoAnalisado *pedido)
 	serverRequest = (char *) malloc(sizeRequest + 1);
 
 	if(serverRequest == NULL){
-		fprintf(stderr," Erro na alocacao do serverRequest! O programa foi encerrado\n");
+		fprintf(stderr," Erro na alocacao do serverRequest!\n");
 		exit (1);
 	}
 	serverRequest[0] = '\0';
@@ -133,7 +162,7 @@ char* converte_Request_to_string(struct PedidoAnalisado *pedido)
 	free(cabecalhoBuffer);
 	return serverRequest;
 }
-int createServerSocket(char *pcAddress, char *pcPort) {
+int createServerSocket(char *requestHost, char *requestPort) {
   
   struct addrinfo host_info;
   struct addrinfo *host_info_list;
@@ -142,26 +171,26 @@ int createServerSocket(char *pcAddress, char *pcPort) {
   memset(&host_info, 0, sizeof(host_info));
   host_info.ai_family = AF_UNSPEC;
   host_info.ai_socktype = SOCK_STREAM;
-  if (getaddrinfo(pcAddress, pcPort, &host_info, &host_info_list) != 0) {
-   		fprintf(stderr," Erro no formato do endereco do servidor! O programa foi encerrado\n");
+  if (getaddrinfo(requestHost, requestPort, &host_info, &host_info_list) != 0) {
+   		fprintf(stderr," Erro no formato do endereco do servidor!\n");
 		exit (1);
   }
   //cria um socket
   if ((idSocket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol)) < 0) 
   {
-    	fprintf(stderr," Erro ao criar socket para o servidor! O programa foi encerrado\n");
+    	fprintf(stderr," Erro ao criar socket para o servidor!\n");
 		exit (1);
   }
   //faz a conecção
   if (connect(idSocket, host_info_list->ai_addr, host_info_list->ai_addrlen) < 0)
   {
-    	fprintf(stderr," Erro ao tentar conectar o servidor! O programa foi encerrado\n");
+    	fprintf(stderr," Erro ao tentar conectar o servidor!\n");
 		exit (1);
   }
   freeaddrinfo(host_info_list);
   return idSocket;
 }
-void writeToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer)
+void sendToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 {
 
 	string temp;
@@ -182,7 +211,7 @@ void writeToServerSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 	}	
 
 }
-void writeToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer)
+void sendToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 {
 	string temp;
 
@@ -201,17 +230,23 @@ void writeToClientSocket(const char* bufferServer,int socketfd,int sizeBuffer)
 
 	}	
 }
-void writeToClient (int Clientfd, int Serverfd) 
+void receiveFromServer (int Clientfd, int Serverfd) 
 {
 	int sizeBuffer = 5000;
 	int iRecv;
 	char buffer[sizeBuffer];
+	/**
+		para receber a resposta HTTP do servidor remoto eu 
+		crio um laço while que verifica se a quantidade de 
+		bytes recebidos é maior que zero
+			caso em que iRecv > 0, armazeno o que eu recebi em um buffer
+								   e repasso imediatamente para o browser
+			caso em que o iRecv == 0, significa que o servidor remoto
+									  terminou de enviar toda a resposta HTTP
+			caso em que o iRecv < 0, significa um erro e o programa é encerrado
+	**/
 	while ((iRecv = recv(Serverfd, buffer, sizeBuffer, 0)) > 0) {
-	    writeToClientSocket(buffer, Clientfd,iRecv);         // writing to client	  
-		//printf("----------------------------------------------------\n");
-		//printf("Resposta do servidor:\n");
-		//printf("%s", buffer);
-		//printf("----------------------------------------------------\n");
+	    sendToClientSocket(buffer, Clientfd,iRecv);         // writing to client	  
 		memset(buffer,0,sizeof (buffer));	
 	}      
 	if (iRecv < 0) {
@@ -219,7 +254,7 @@ void writeToClient (int Clientfd, int Serverfd)
 	  exit (1);
 	}
 }
-void* getDadoCliente(void* socketid)
+void* getRequestHTTP(void* socketid)
 {
 	int sizeBuffer = 5000;
 
@@ -238,7 +273,7 @@ void* getDadoCliente(void* socketid)
 	mensagem = (char *) malloc(sizeBuffer); 
 
 	if (mensagem == NULL) {
-		fprintf(stderr,"Erro durante a alocacao de memoria. O programa foi encerrado\n");
+		fprintf(stderr,"Erro durante a alocacao de memoria.\n");
 		exit (1);
 	}	
 
@@ -271,120 +306,56 @@ void* getDadoCliente(void* socketid)
 	}
 	if(strlen(mensagem) > 0)
 	{
+		char what[5000];
+		struct PedidoAnalisado *pedido;    // contem o pedido analisado
 		printf("----------------------------------------------------\n");
 		printf("Resquisicao HTTP do browser:\n");
-		printf("%s", mensagem);
-		printf("----------------------------------------------------\n");
-	}
-	struct PedidoAnalisado *pedido;    // contem o pedido analisado
+		printf("%s\n", mensagem);
+		printf("1 - Spider \n2 - Cliente Recursivo\n3 - Apenas responder o brownser\nDigite a opcao >> ");
+		scanf("%d", &opcao);
+		switch(opcao)
+		{
+			case 1:
+				pedido = PedidoAnalisado_create();
+				Analise_do_pedido(pedido, mensagem, strlen(mensagem));
+			    memset(what,'\0',5000);
+			    strcpy(what,"./spider ");
+			    strcat(what,pedido->host);
+			    system(what);
+				break;
+			case 2:
+				pedido = PedidoAnalisado_create();
+				Analise_do_pedido(pedido, mensagem, strlen(mensagem));
+			    memset(what,'\0',5000);
+			    strcpy(what,"./my_wget ");
+			    strcat(what,pedido->host);
+			    system(what);
+				break;
+			default:
 
-	pedido = PedidoAnalisado_create();
+				pedido = PedidoAnalisado_create();
 
-	if (Analise_do_pedido(pedido, mensagem, strlen(mensagem)) < 0) {		
-		//fprintf(stderr,"Erro na mensagem de pedido, apenas http e get com cabecalhos sao permitido!\n");
-		exit(0);
+				Analise_do_pedido(pedido, mensagem, strlen(mensagem));
+				//Se a porta não foi setada na mensagem URL, coloquei como padrao a porta 80
+				if (pedido->port == NULL) pedido->port = (char *) "80";
+				
+				int pid = fork();
+
+		 		if(pid == 0)	//processo filho
+		 		{
+		 			browser_request  = converte_Request_to_string(pedido);		
+					iServerfd = createServerSocket(pedido->host, pedido->port);
+					sendToServerSocket(browser_request, iServerfd, total_de_bits_recebidos);
+					receiveFromServer(newsockfd, iServerfd);
+					PedidoAnalisado_destroy(pedido);	
+					close(newsockfd);   
+					close(iServerfd);
+					_exit(0);
+		 		}
+				break;
+		}
 	}
-	//Se a porta não foi setada na mensagem URL, coloquei como padrao a porta 8228
-	if (pedido->port == NULL)             
-		 pedido->port = (char *) "80";
-	//showRequestClientHttp(pedido);
-	//pedido final para ser enviado
-	browser_request  = converte_Request_to_string(pedido);		
-	iServerfd = createServerSocket(pedido->host, pedido->port);
-	writeToServerSocket(browser_request, iServerfd, total_de_bits_recebidos);
-	writeToClient(newsockfd, iServerfd);
-	PedidoAnalisado_destroy(pedido);	
-	close(newsockfd);   
-	close(iServerfd);
 	int y = 3;
 	int *p = &y;
 	return p;
-}
-
-void showRequestClientHttp(struct PedidoAnalisado *pedido)
-{
-	printf("----------------------------------------------------\n");
-	printf("Request HTTP interceptado do browser:\n");
-	printf("1 - method: %s\n", pedido->method);
-	printf("2 - url: %s\n", pedido->path);
-	printf("3 - protocol: %s\n", pedido->protocol);
-	printf("4 - host: %s\n", pedido->host);
-	printf("5 - port: %s\n", pedido->port);
-	printf("6 - version: %s\n", pedido->version);
-	printf("7 - buffer: %s\n", pedido->buf);
-	printf("8 - tamanho do buffer: %zu\n", pedido->buflen);
-	printf("9 - key: %s\n", pedido->headers->key);
-	printf("10 - sizeKey: %zu\n", pedido->headers->sizeKey);
-	printf("11 - value: %s\n", pedido->headers->value);
-	printf("12 - sizeValue: %zu\n", pedido->headers->sizeValue);
-	printf("13 - para enviar sem editar\n");
-	printf("----------------------------------------------------\n");
-	/*int opcao;
-	printf("Digite enter para continuar >> ");
-	scanf("%d", &opcao);
-	switch(opcao)
-	{
-		case 1:
-			printf("1 - method: %s\n", pedido->method);
-			printf("1 - method >> ");
-			scanf("%s",pedido->method);
-			break;
-		case 2:
-			printf("2 - url: %s\n", pedido->path);
-			printf("2 - url >> ");
-			scanf("%s",pedido->path);
-			break;
-		case 3:
-			printf("3 - protocol: %s\n", pedido->protocol);
-			printf("3 - protocol >> ");
-			scanf("%s",pedido->protocol);
-			break;
-		case 4:
-			printf("4 - host: %s\n", pedido->host);
-			printf("4 - host >> ");
-			scanf("%s",pedido->host);
-			break;
-		case 5:
-			printf("5 - port: %s\n", pedido->port);
-			printf("5 - port >> ");
-			scanf("%s",pedido->port);
-			break;
-		case 6:
-			printf("6 - version: %s\n", pedido->version);
-			printf("6 - version >> ");
-			scanf("%s",pedido->version);
-			break;
-		case 7:
-			printf("7 - buffer: %s\n", pedido->buf);
-			printf("7 - buffer >> ");
-			scanf("%s",pedido->buf);
-			break;
-		case 8:
-			printf("8 - tamanho do buffer: %zu\n", pedido->buflen);
-			printf("8 - tamanho do buffer >> ");
-			scanf("%zu",&pedido->buflen);
-			break;
-		case 9:
-			printf("9 - key: %s\n", pedido->headers->key);
-			printf("9 - key >> ");
-			scanf("%s",pedido->headers->key);
-			break;
-		case 10:
-			printf("10 - sizeKey: %zu\n", pedido->headers->sizeKey);
-			printf("10 - sizeKey >> ");
-			scanf("%zu",&pedido->headers->sizeKey);
-			break;
-		case 11:
-			printf("11 - value: %s\n", pedido->headers->value);
-			printf("11 - value >> ");
-			scanf("%s",pedido->headers->value);
-			break;
-		case 12:
-			printf("12 - sizeValue: %zu\n", pedido->headers->sizeValue);
-			printf("12 - sizeValue >> ");
-			scanf("%zu",&pedido->headers->sizeValue);
-			break;
-		default:
-			return;
-	}*/
 }

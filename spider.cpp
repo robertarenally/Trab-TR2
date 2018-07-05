@@ -77,7 +77,7 @@ int get_mensagem (char *host)
     fclose(fp1);
     return 0;
 }
-void pause (float delay1) {
+void delay (float delay1) {
 
    if (delay1<0.001) return; // pode ser ajustado e/ou evita-se valores negativos.
 
@@ -108,7 +108,7 @@ void showq(queue <string> gq)
             printf("\t\t\t");
             printf("-- %s %s-- ", __DATE__,__TIME__);
             cout << g.front() << '\n';
-            pause(1);
+            delay(1);
         }
         g.pop();
     }
@@ -135,7 +135,7 @@ void destroi(queue <string> gq)
     }
 }
 
-void extrai_urls(char *host)
+void spider(char *host)
 {
     /** TODO: corrigir a extração dos links, pois possue links quebrados
     **/
@@ -341,7 +341,7 @@ void recursivo(queue <string> gq)
         char nome[5000];
         strcpy(nome, str.c_str());
         get_mensagem (nome);
-        extrai_urls(nome);
+        spider(nome);
         g.pop();
     }
 }
@@ -351,7 +351,7 @@ int main (int argc, char *argv[])
     char * host = argv[1];
     raiz = argv[1];
     get_mensagem(host);
-    extrai_urls(host);
+    spider(host);
     recursivo(gquiz);
     destroi(gquiz);
     return 0;

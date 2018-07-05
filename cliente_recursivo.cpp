@@ -32,7 +32,7 @@ char *raiz, flagStr[5000];
 
 void recursivo(queue <string> gq);
 
-void pause (float delay1) {
+void delay (float delay1) {
 
    if (delay1<0.001) return; // pode ser ajustado e/ou evita-se valores negativos.
 
@@ -223,7 +223,7 @@ void showq(queue <string> gq)
     {
     	cout << g.front() << '\n';
         g.pop();
-        pause(1);
+        delay(1);
     }
     cout << '\n';
 }
@@ -248,10 +248,8 @@ void destroi(queue <string> gq)
     }
 }
 
-void extrai_urls(char *host)
+void spider(char *host)
 {
-    /** TODO: corrigir a extração dos links, pois possue links quebrados
-    **/
     FILE *fp1;
     char dados[5000];
     fp1 = fopen("index.html","r");
@@ -453,20 +451,19 @@ void recursivo(queue <string> gq)
 	    if(get_page (nome) == 0)
 	    {
 	       	cout << "\t\t\t";cout << "Download " << nome << '\n';
-	        extrai_urls(nome);  	
+	        spider(nome);  	
 	    }
 	    g.pop();
-	    pause(1);
+	    delay(1);
 	}   
 }
 int main (int argc, char *argv[])
 {
-    /* Get one of the web pages here. */
     char * host = argv[1];
     raiz = argv[1];
     directory(host);
     get_page (host);
-    extrai_urls(host);
+    spider(host);
     recursivo(gquiz);
     destroi(gquiz);
     return 0;

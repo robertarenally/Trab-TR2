@@ -336,13 +336,6 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
 	  p->buf = NULL;
 	  return -1;
      }
-     if (strcmp (p->method, "GET")) {
-	  debug( "linha de solicitacao invalida, metodo nao e GET %s\n", p->method);
-	  free(tmp_buf);
-	  free(p->buf);
-	  p->buf = NULL;
-	  return -1;
-     }
 
      full_addr = strtok_r(NULL, " ", &saveptr);
 

@@ -311,7 +311,7 @@ void* getRequestHTTP(void* socketid)
 		printf("----------------------------------------------------\n");
 		printf("Resquisicao HTTP do browser:\n");
 		printf("%s\n", mensagem);
-		printf("1 - Spider \n2 - Cliente Recursivo\n3 - Apenas responder o brownser\nDigite a opcao >> ");
+		printf("1 - Spider \n2 - Cliente Recursivo\n3 - Apenas responder o browser\nDigite a opcao >> ");
 		scanf("%d", &opcao);
 		switch(opcao)
 		{

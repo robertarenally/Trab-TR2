@@ -125,7 +125,7 @@ int CabecalhoDoPedido_printHeaders(struct PedidoAnalisado * pr, char * buf, size
 
      if(len < CabecalhoDoPedido_size(pr))
      {
-	  debug("buffer for printing headers too small\n");
+	  debug("buffer para mostrar o cabecalho do pedido e muito pequeno\n");
 	  return -1;
      }
   
@@ -184,7 +184,7 @@ int Analise_CabecalhoDoPedido(struct PedidoAnalisado * pr, char * line)
      index1 = index(line, ':');
      if(index1 == NULL)
      {
-	  debug("No colon found\n");
+	  debug("Dois pontos nao encontrado\n");
 	  return -1;
      }
      key = (char *)malloc((index1-line+1)*sizeof(char));
@@ -254,8 +254,8 @@ int recuperaPedidoHTTP(struct PedidoAnalisado *p, char *buffer, size_t size_buff
 }
 
 /* 
-   Recreate the headers from a parsed request object.
-   buf must be allocated
+   Recria os cabeçalhos HTTP a partir de um objeto do tipo pedido analisado(onde é armazenado o os dados depois do parser)
+   buffer deve ser alocado previamente
 */
 int recupera_cabecalho_PedidoHTTP(struct PedidoAnalisado *p, char *buffer,  size_t size_buffer)
 {
@@ -268,7 +268,7 @@ int recupera_cabecalho_PedidoHTTP(struct PedidoAnalisado *p, char *buffer,  size
 }
 
 
-/* Size of the headers if unparsed into a string */
+/* Retorna o tamanho da estrutura PedidoAnalisado */
 size_t PedidoAnalisado_sizeTotal(struct PedidoAnalisado *p)
 {
      if (!p || !p->buf)
@@ -278,17 +278,16 @@ size_t PedidoAnalisado_sizeTotal(struct PedidoAnalisado *p)
 
 
 /* 
-   Parse request buffer
+   Realiza o parser da requisicao http
  
-   Parameters: 
-   parse: ptr to a newly createdPedidoAnalisado object
-   buf: ptr to the buffer containing the request (need not be NUL terminated)
-   and the trailing \r\n\r\n
-   buflen: length of the buffer including the trailing \r\n\r\n
+   Parametros:
+   struct PedidoAnalisado *p: ponteiro do tipo PedidoAnalisadp
+   buffer: buffer que contem a requisicao http. O buffer precissa terminar com \r\n\r\n
+   size_buffer: tamanho do buffer
    
-   Return values:
-   -1: failure
-   0: success
+   Retorna:
+   -1: failha
+   0: sucesso
 */
 int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_buffer)
 {
@@ -298,12 +297,12 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      char *currentHeader;
 
      if (p->buf != NULL) {
-	  debug("parse object already assigned to a request\n");
+	  debug("pobjeto de análise já atribuído a uma solicitação\n");
 	  return -1;
      }
    
      if (size_buffer < MIN_REQ_LEN || size_buffer > MAX_REQ_LEN) {
-	  debug("invalid size_buffer %d", size_buffer);
+	  debug("tamanho do buffer e invalido %d", size_buffer);
 	  return -1;
      }
    
@@ -314,7 +313,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
    
      index = strstr(tmp_buf, "\r\n\r\n");
      if (index == NULL) {
-	  debug("invalid request line, no end of header\n");
+	  debug("linha de solicitacao invalida, sem fim de cabecalho\n");
 	  free(tmp_buf);
 	  return -1;
      }
@@ -331,14 +330,14 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      /* Parse request line */
      p->method = strtok_r(p->buf, " ", &saveptr);
      if (p->method == NULL) {
-	  debug( "invalid request line, no whitespace\n");
+	  debug( "linha de solicitacao invalida, sem espaco em branco\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
 	  return -1;
      }
      if (strcmp (p->method, "GET")) {
-	  debug( "invalid request line, method not 'GET': %s\n", p->method);
+	  debug( "linha de solicitacao invalida, metodo nao e GET %s\n", p->method);
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -348,7 +347,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      full_addr = strtok_r(NULL, " ", &saveptr);
 
      if (full_addr == NULL) {
-	  debug( "invalid request line, no full address\n");
+	  debug( "linha de solicitacao invalida, nao possui o endereco completo\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -358,14 +357,14 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      p->version = full_addr + strlen(full_addr) + 1;
 
      if (p->version == NULL) {
-	  debug( "invalid request line, missing version\n");
+	  debug( "linha de solicitacao invalida, falta a versao do http\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
 	  return -1;
      }
      if (strncmp (p->version, "HTTP/", 5)) {
-	  debug( "invalid request line, unsupported version %s\n", p->version);
+	  debug( "linha de solicitacao invalida, versao nao suportada %s\n", p->version);
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -373,7 +372,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      }
      p->protocol = strtok_r(full_addr, "://", &saveptr);
      if (p->protocol == NULL) {
-	  debug( "invalid request line, missing host\n");
+	  debug( "linha de solicitacao invalida, falta a porta\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -385,7 +384,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
 
      p->host = strtok_r(NULL, "/", &saveptr);
      if (p->host == NULL) {
-	  debug( "invalid request line, missing host\n");
+	  debug( "linha de solicitacao invalida, nao possui host:\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -393,7 +392,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      }
      
      if (strlen(p->host) == abs_uri_len) {
-	  debug("invalid request line, missing absolute path\n");
+	  debug("linha de solicitação inválida, sem caminho absoluto\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -405,7 +404,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
 	  p->path = (char *)malloc(rlen + 1);
 	  strncpy(p->path, root_abs_path, rlen + 1);
      } else if (strncmp(p->path, root_abs_path, strlen(root_abs_path)) == 0) {
-	  debug("invalid request line, path cannot begin ""with two slash characters\n");
+	  debug("inha de solicitação inválida, o caminho não pode começar "" com dois caracteres de barra\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  p->buf = NULL;
@@ -425,7 +424,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      p->port = strtok_r(NULL, "/", &saveptr);
 
      if (p->host == NULL) {
-	  debug( "invalid request line, missing host\n");
+	  debug( "linha de solicitacao invalida, nao possui host:\n");
 	  free(tmp_buf);
 	  free(p->buf);
 	  free(p->path);
@@ -437,7 +436,7 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      if (p->port != NULL) {
 	  int port = strtol (p->port, (char **)NULL, 10);
 	  if (port == 0 && errno == EINVAL) {
-	       debug("invalid request line, bad port: %s\n", p->port);
+	       debug("linha de solicitacao invalida, porta incorreta: %s\n", p->port);
 	       free(tmp_buf);
 	       free(p->buf);
 	       free(p->path);
@@ -453,8 +452,6 @@ int Analise_do_pedido(struct PedidoAnalisado *p, const char *buffer, int size_bu
      currentHeader = strstr(tmp_buf, "\r\n")+2;
      while (currentHeader[0] != '\0' && 
 	    !(currentHeader[0] == '\r' && currentHeader[1] == '\n')) {
-	  
-	  //debug("line %s %s", parse->version, currentHeader);
 
 	  if (Analise_CabecalhoDoPedido(p, currentHeader)) {
 	       ret = -1;
@@ -482,7 +479,7 @@ size_t PedidoAnalisado_requestLineLen(struct PedidoAnalisado *pr)
      {
 	  len += strlen(pr->port)+1;
      }
-     /* path is at least a slash */
+     /*caminho é pelo menos uma barra */
      len += strlen(pr->path);
      return len;
 }
@@ -493,7 +490,7 @@ int PedidoAnalisado_printRequestLine(struct PedidoAnalisado *pr, char * buf, siz
 
      if(buflen < PedidoAnalisado_requestLineLen(pr))
      {
-	  debug("not enough memory for first line\n");
+	  debug("memoria insuficiente para a primeira linha\n");
 	  return -1; 
      }
      memcpy(current, pr->method, strlen(pr->method));
@@ -514,7 +511,7 @@ int PedidoAnalisado_printRequestLine(struct PedidoAnalisado *pr, char * buf, siz
 	  memcpy(current, pr->port, strlen(pr->port));
 	  current += strlen(pr->port);
      }
-     /* path is at least a slash */
+     /*caminho é pelo menos uma barra */
      memcpy(current, pr->path, strlen(pr->path));
      current += strlen(pr->path);
 
